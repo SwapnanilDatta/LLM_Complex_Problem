@@ -1,0 +1,60 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "numReplicas": 1
+  },
+  "services": {
+    "backend": {
+      "builder": "NIXPACKS",
+      "watchPatterns": ["backend/**"],
+      "env": {
+        "PORT": "8000"
+      },
+      "phases": {
+        "setup": {
+          "nixPkgs": ["python311", "gcc"]
+        },
+        "install": {
+          "cmds": [
+            "cd backend && pip install -r requirements.txt"
+          ]
+        },
+        "start": {
+          "cmds": [
+            "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+          ]
+        }
+      }
+    },
+    "frontend": {
+      "builder": "NIXPACKS",
+      "watchPatterns": ["frontend/**"],
+      "env": {
+        "PORT": "3000"
+      },
+      "phases": {
+        "setup": {
+          "nixPkgs": ["nodejs_20"]
+        },
+        "install": {
+          "cmds": [
+            "cd frontend && npm install"
+          ]
+        },
+        "build": {
+          "cmds": [
+            "cd frontend && npm run build"
+          ]
+        },
+        "start": {
+          "cmds": [
+            "cd frontend && npm run preview -- --host 0.0.0.0 --port $PORT"
+          ]
+        }
+      }
+    }
+  }
+}
