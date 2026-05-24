@@ -17,6 +17,18 @@ function App() {
   const [expandedIds, setExpandedIds] = useState([]);
   const [finalProof, setFinalProof] = useState('');
   const [activeTab, setActiveTab] = useState('solver'); // 'solver' | 'eval'
+  const [backendType, setBackendType] = useState(() => {
+    return localStorage.getItem('backend_type') || 'hf';
+  });
+
+  const getBackendUrl = () => {
+    if (backendType === 'local') return 'http://localhost:8000';
+    return 'https://swapnanildatta-finalyear.hf.space';
+  };
+
+  useEffect(() => {
+    localStorage.setItem('backend_type', backendType);
+  }, [backendType]);
   
   const eventSourceRef = useRef(null);
   const streamEndRef = useRef(null);
@@ -39,7 +51,7 @@ function App() {
     setConsecutivePasses(0);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = getBackendUrl();
       // Create POST request to start the process
       const response = await fetch(`${apiUrl}/api/prove/stream`, {
         method: 'POST',
@@ -133,19 +145,66 @@ function App() {
         <p className="subtitle">Agentic Workflow with LangGraph for Rigorous Proofs</p>
       </header>
 
-      <div className="tabs-container">
-        <button 
-          className={`btn-tab ${activeTab === 'solver' ? 'active' : ''}`}
-          onClick={() => setActiveTab('solver')}
-        >
-          🔍 Solver Workspace
-        </button>
-        <button 
-          className={`btn-tab ${activeTab === 'eval' ? 'active' : ''}`}
-          onClick={() => setActiveTab('eval')}
-        >
-          📊 Ablation Analytics
-        </button>
+      <div className="tabs-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className={`btn-tab ${activeTab === 'solver' ? 'active' : ''}`}
+            onClick={() => setActiveTab('solver')}
+          >
+            🔍 Solver Workspace
+          </button>
+          <button 
+            className={`btn-tab ${activeTab === 'eval' ? 'active' : ''}`}
+            onClick={() => setActiveTab('eval')}
+          >
+            📊 Ablation Analytics
+          </button>
+        </div>
+        
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px', 
+          padding: '4px 8px', 
+          background: 'rgba(255, 255, 255, 0.02)', 
+          border: '1px solid var(--border-color)', 
+          borderRadius: '10px',
+          backdropFilter: 'blur(12px)'
+        }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500, paddingLeft: '4px' }}>📡 Backend API:</span>
+          <button 
+            onClick={() => setBackendType('local')}
+            style={{
+              fontSize: '11px',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              background: backendType === 'local' ? 'var(--accent-color)' : 'transparent',
+              color: backendType === 'local' ? '#fff' : 'var(--text-secondary)',
+              transition: 'all 0.2s'
+            }}
+          >
+            Local (8000)
+          </button>
+          <button 
+            onClick={() => setBackendType('hf')}
+            style={{
+              fontSize: '11px',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              background: backendType === 'hf' ? 'var(--success-color)' : 'transparent',
+              color: backendType === 'hf' ? '#fff' : 'var(--text-secondary)',
+              transition: 'all 0.2s'
+            }}
+          >
+            Hugging Face
+          </button>
+        </div>
       </div>
 
       {activeTab === 'eval' ? (
