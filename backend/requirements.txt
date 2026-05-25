@@ -1,10 +1,18 @@
+# Core agent dependencies
 fastapi
 uvicorn
 sse-starlette
 langchain
-langchain-groq
+langchain-groq          # Groq backend (original)
+langchain-ollama        # Ollama backend (new — local models)
 langgraph
 motor
 python-dotenv
 pydantic
-langchain-together
+langchain-together      # Together.AI backend (optional)
+
+# Math verification
+sympy
+
+# Eval harness
+# (no extra deps — uses stdlib csv, json, argparse)

@@ -200,8 +200,8 @@ BENCHMARK = [
 
 TIERS = ["algebra", "number_theory", "olympiad"]
 
-# Filter to 20 questions: 10 algebra, 10 number theory (REMOVED: Now uses all 30 problems)
-# BENCHMARK = [p for p in BENCHMARK if p["id"] in [f"alg_{i:02d}" for i in range(1, 11)] + [f"nt_{i:02d}" for i in range(1, 11)]]
+# Filter to 20 questions: 10 algebra, 10 number theory
+BENCHMARK = [p for p in BENCHMARK if p["id"] in [f"alg_{i:02d}" for i in range(1, 11)] + [f"nt_{i:02d}" for i in range(1, 11)]]
 
 def get_by_tier(tier: str) -> list:
     return [p for p in BENCHMARK if p["tier"] == tier]
