@@ -9,13 +9,8 @@ langgraph
 motor
 python-dotenv
 pydantic
-
-
-# Math verification
+numpy
+pandas
 sympy
-
-# Eval harness
-# (no extra deps — uses stdlib csv, json, argparse)
-
-# Machine Learning
+matplotlib
 scikit-learn
