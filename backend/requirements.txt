@@ -1,0 +1,21 @@
+# Core agent dependencies
+fastapi
+uvicorn
+sse-starlette
+langchain
+langchain-groq          # Groq backend (original)
+langchain-google-genai
+langgraph
+motor
+python-dotenv
+pydantic
+
+
+# Math verification
+sympy
+
+# Eval harness
+# (no extra deps — uses stdlib csv, json, argparse)
+
+# Machine Learning
+scikit-learn

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sse-starlette
+langchain
+langchain-groq
+langgraph
+motor
+python-dotenv
+pydantic
+langchain-together
