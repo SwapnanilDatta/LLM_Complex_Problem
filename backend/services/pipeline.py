@@ -201,7 +201,8 @@ async def visualization_node(state: PipelineState) -> dict:
     explanation = state.get("explanation", "")
     verified_out = state.get("verified_output", "")
     
-    import re
+    domain = state.get("domain", "maths")
+    
     # Extract any generated matplotlib plots from the sandbox execution (Maths/ML)
     plots = re.findall(r"(!\[Generated Plot\]\(data:image/png;base64,[^\)]+\))", verified_out)
     plot_markdown = "\n\n".join(plots)
@@ -210,13 +211,9 @@ async def visualization_node(state: PipelineState) -> dict:
     if plot_markdown:
         final_answer = plot_markdown + "\n\n---\n\n" + explanation
 
-    # Convert Automata <mermaid> tags to standard markdown code blocks
-    mermaid_match = re.search(r"<mermaid>(.*?)</mermaid>", explanation, re.DOTALL | re.IGNORECASE)
-    if mermaid_match:
-        mermaid_code = mermaid_match.group(1).strip()
-        # Remove the original <mermaid> block from the explanation text
-        explanation_clean = re.sub(r"<mermaid>.*?</mermaid>", "", explanation, flags=re.DOTALL | re.IGNORECASE).strip()
-        final_answer = f"```mermaid\n{mermaid_code}\n```\n\n---\n\n" + explanation_clean
+    # For automata, the verified output IS the Mermaid graph
+    if domain == "automata":
+        final_answer = f"```mermaid\n{verified_out.strip()}\n```\n\n---\n\n" + explanation
         
     return {"visualization": None, "status": "completed", "final_answer": final_answer}
 

@@ -39,11 +39,12 @@ Wrap your explanation in <explanation>...</explanation> tags.
 AUTOMATA_PROBLEM_BUILDER_PROMPT = """You are an expert in Automata Theory.
 Translate the following query into a valid Mermaid JS state diagram representing the DFA or NFA.
 CRITICAL RENDERING RULES:
-1. You MUST use 'graph LR' (Left-to-Right layout) to ensure an educational, clean timeline view. DO NOT use 'stateDiagram-v2'.
-2. Accepting states MUST be visually distinct using double-circles, e.g., `q2(((q2)))`.
-3. The Start state MUST have a clear entry arrow, e.g., `Start(( )) --> q0`.
-4. Group multiple transitions between the same nodes with commas (e.g., `q0 -->|0, 1| q1`).
-5. Ensure clear, non-overlapping labels and minimal edge crossings.
+1. You MUST use 'flowchart LR' (Left-to-Right layout). DO NOT use 'stateDiagram-v2'.
+2. Node IDs must be strictly alphanumeric (e.g., q0, q1).
+3. Accepting states MUST be visually distinct using double-circles, e.g., `q2(((q2)))`.
+4. The Start state MUST be indicated by an invisible/dummy node, e.g., `start(( )) --> q0`.
+5. Group multiple transitions between the same nodes with commas AND enclose the transition labels in double quotes, e.g., `q0 -->|"0, 1"| q1`.
+6. DO NOT use unquoted special characters in transition labels.
 
 Output ONLY the Mermaid JS code wrapped in <mermaid>...</mermaid> tags."""
 
@@ -65,7 +66,6 @@ Step 5: Accepting States. Identify which state(s) satisfy the final condition.
 Step 6: Acceptance Testing. Provide exactly 3 examples of Accepted strings and 3 examples of Rejected strings.
 
 DO NOT explain the Mermaid syntax or graph generation. Focus entirely on the Automata Theory.
-Crucially, you MUST include the verified Mermaid JS code wrapped in <mermaid>...</mermaid> tags at the VERY END of your explanation.
 Wrap your entire output in <explanation>...</explanation> tags."""
 
 ML_PROBLEM_BUILDER_PROMPT = """You are an expert Data Scientist.
