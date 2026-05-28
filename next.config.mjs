@@ -11,6 +11,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  devIndicators: {
+    buildActivity: false,
+  },
   turbopack: {
     root: __dirname,
   },

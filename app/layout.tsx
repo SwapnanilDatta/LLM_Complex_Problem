@@ -16,17 +16,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'SolveX - Multimodal AI Assistant',
   description: 'SolveX — a premium multimodal AI chatbot for mathematics, machine learning, and automata theory.',
-  generator: 'v0.app',
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
       {
         url: '/logo.jpeg',
         type: 'image/jpeg',

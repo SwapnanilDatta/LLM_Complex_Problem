@@ -6,6 +6,12 @@ import { useChatStore, AgentMode } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
 import Image from 'next/image'
+import { useEffect } from 'react'
+import { useAuthStore } from '@/lib/auth-store'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { LogOut, User as UserIcon } from 'lucide-react'
 
 const agentCards: {
   id: AgentMode
@@ -72,11 +78,57 @@ const cardVariants: any = {
 }
 
 export function WelcomeScreen() {
-  const { openAgentTab } = useChatStore()
+  const router = useRouter()
+  const { openAgentTab, fetchChats } = useChatStore()
   const { t } = useTranslation()
+  const { user, isAuthenticated, checkAuth, logout } = useAuthStore()
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchChats()
+    }
+  }, [isAuthenticated, fetchChats])
 
   return (
     <div className="relative flex flex-col items-center justify-center h-full overflow-y-auto overflow-x-hidden bg-background px-4 py-24">
+      
+      {/* Auth header top right */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-4">
+        {isAuthenticated && user ? (
+          <div className="flex items-center gap-4 bg-background/50 backdrop-blur-md px-4 py-2 rounded-full border border-[oklch(0.7_0.15_195_/_0.2)]">
+            <div className="flex items-center gap-2">
+              <UserIcon className="h-4 w-4 text-[oklch(0.7_0.15_195)]" />
+              <span className="text-sm font-medium">{user.name}</span>
+            </div>
+            <div className="w-px h-4 bg-border" />
+            <button
+              onClick={() => logout()}
+              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Link href="/login">
+              <Button variant="ghost" className="rounded-full">
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button className="rounded-full bg-[oklch(0.7_0.15_195)] hover:bg-[oklch(0.6_0.15_195)] text-white">
+                Sign Up
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -124,49 +176,43 @@ export function WelcomeScreen() {
         transition={{ duration: 0.6 }}
         className="relative text-center mb-14 z-10"
       >
-        {/* SolveX Logo */}
-        <motion.div
-          initial={{ scale: 0, rotate: -10 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
-          className="inline-flex items-center justify-center w-24 h-24 rounded-2xl mb-6 overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, oklch(0.7 0.15 195 / 0.2), oklch(0.7 0.2 320 / 0.2))',
-            border: '1px solid oklch(0.7 0.15 195 / 0.3)',
-            boxShadow: '0 0 40px oklch(0.7 0.15 195 / 0.2)',
-          }}
-        >
-          <Image
-            src="/logo.jpeg"
-            alt="SolveX Logo"
-            width={96}
-            height={96}
-            className="w-full h-full object-cover"
-            priority
-          />
-        </motion.div>
-
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <Sparkles className="h-4 w-4 text-[oklch(0.7_0.15_195)]" />
-          <span className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-            {t('welcome.subtitle')}
-          </span>
-          <Sparkles className="h-4 w-4 text-[oklch(0.7_0.15_195)]" />
-        </div>
-
-        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-5">
-          <span className="text-foreground">Solve</span>
-          <span
+        <div className="flex items-center justify-center gap-4 mb-5">
+          {/* SolveX Logo */}
+          <motion.div
+            initial={{ scale: 0, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+            className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-2xl overflow-hidden shrink-0"
             style={{
-              background: 'linear-gradient(90deg, oklch(0.7 0.15 195), oklch(0.7 0.2 320), oklch(0.8 0.18 85))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              background: 'linear-gradient(135deg, oklch(0.7 0.15 195 / 0.2), oklch(0.7 0.2 320 / 0.2))',
+              border: '1px solid oklch(0.7 0.15 195 / 0.3)',
+              boxShadow: '0 0 40px oklch(0.7 0.15 195 / 0.2)',
             }}
           >
-            X
-          </span>
-        </h1>
+            <Image
+              src="/logo.jpeg"
+              alt="SolveX Logo"
+              width={96}
+              height={96}
+              className="w-full h-full object-contain p-2"
+              priority
+            />
+          </motion.div>
+
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight m-0">
+            <span className="text-foreground">Solve</span>
+            <span
+              style={{
+                background: 'linear-gradient(90deg, oklch(0.7 0.15 195), oklch(0.7 0.2 320), oklch(0.8 0.18 85))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              X
+            </span>
+          </h1>
+        </div>
 
         <p className="text-lg md:text-xl text-muted-foreground max-w-lg mx-auto leading-relaxed">
           {t('welcome.description')}{' '}
@@ -193,7 +239,13 @@ export function WelcomeScreen() {
                 boxShadow: `0 24px 48px ${card.glowColor}, 0 0 0 1px ${card.glowColor}`,
               }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => openAgentTab(card.id)}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  router.push('/login')
+                } else {
+                  openAgentTab(card.id)
+                }
+              }}
               className={cn(
                 'relative flex flex-col items-start p-7 rounded-2xl text-left border transition-all duration-300 overflow-hidden group',
                 'bg-gradient-to-br',

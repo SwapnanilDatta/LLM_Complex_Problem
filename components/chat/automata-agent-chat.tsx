@@ -29,6 +29,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useChatStore } from '@/lib/store'
 import 'katex/dist/katex.min.css'
 import 'katex/dist/katex.min.css'
 
@@ -328,14 +329,32 @@ function EventCard({ ev }: { ev: NodeEvent }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function AutomataAgentChat() {
-  const [problem, setProblem] = useState('')
+  const { activeChatByAgent, chatsByAgent, updateChatLocally, saveChatUpdate } = useChatStore()
+  const activeChatId = activeChatByAgent['automata']
+  const currentChat = chatsByAgent['automata'].find(c => c.id === activeChatId)
+
+  const problem = currentChat?.problem || ''
+  const status = (currentChat?.status as AgentStatus) || 'idle'
+  const events = (currentChat?.events as NodeEvent[]) || []
+  const finalAnswer = currentChat?.finalAnswer || ''
+  const errorMsg = currentChat?.errorMsg || ''
+  const attachments = (currentChat?.attachments as {name: string, type: string, data: string}[]) || []
+  const isRunning = status !== 'idle' && status !== 'completed' && status !== 'error'
+
+  const history = (currentChat?.history as any[]) || []
+  const [followUpText, setFollowUpText] = useState('')
   const [forceMode, setForceMode] = useState('auto')
-  const [isRunning, setIsRunning] = useState(false)
-  const [status, setStatus] = useState<AgentStatus>('idle')
-  const [events, setEvents] = useState<NodeEvent[]>([])
-  const [finalAnswer, setFinalAnswer] = useState('')
-  const [errorMsg, setErrorMsg] = useState('')
-  const [attachments, setAttachments] = useState<{name: string, type: string, data: string}[]>([])
+
+  const setProblem = (val: string) => {
+    if (activeChatId) updateChatLocally(activeChatId, { problem: val }, 'automata')
+  }
+
+  const setAttachments = (updater: any) => {
+    if (activeChatId) {
+      const newAtt = typeof updater === 'function' ? updater(attachments) : updater
+      updateChatLocally(activeChatId, { attachments: newAtt }, 'automata')
+    }
+  }
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -349,65 +368,89 @@ export function AutomataAgentChat() {
   }, [events])
 
   const handleStreamEvent = useCallback((type: string, payload: Record<string, unknown>) => {
+    if (!activeChatId) return;
     if (type === 'start') {
-      setStatus('started')
+      updateChatLocally(activeChatId, { status: 'started' }, 'automata')
     } else if (type === 'node_update') {
-      setStatus((payload.status as AgentStatus) || 'running')
-      setEvents(prev => [
-        ...prev,
-        {
-          id: Date.now() + Math.random(),
-          node: payload.node as string,
-          mode: payload.mode as string | undefined,
-          code_snippet: payload.code_snippet as string | undefined,
-          execution_result: payload.execution_result as string | undefined,
-          retry_count: payload.retry_count as number | undefined,
-          planner_strategy: payload.planner_strategy as string | undefined,
-          current_proof: payload.current_proof as string | undefined,
-          critic_feedback: payload.critic_feedback as string | undefined,
-          proof_iterations: payload.proof_iterations as number | undefined,
-          proof_snippet: payload.proof_snippet as string | undefined,
-          final_answer_snippet: payload.final_answer_snippet as string | undefined,
-          status: (payload.status as AgentStatus) || 'running',
-          full_update: payload.full_update as Record<string, unknown> | undefined,
-        },
-      ])
+      const newStatus = (payload.status as AgentStatus) || 'running'
+      const newEvent = {
+        id: Date.now() + Math.random(),
+        node: payload.node as string,
+        ...payload,
+        status: newStatus,
+      } as NodeEvent
+      
+      const current = useChatStore.getState().chatsByAgent['automata'].find(c => c.id === activeChatId)
+      const updatedEvents = [...(current?.events || []), newEvent]
+      
+      updateChatLocally(activeChatId, { status: newStatus, events: updatedEvents as any }, 'automata')
+      saveChatUpdate(activeChatId, { status: newStatus, events: updatedEvents as any })
     } else if (type === 'done') {
-      setStatus('completed')
-      setIsRunning(false)
-      if (payload.final_answer) setFinalAnswer(payload.final_answer as string)
+      updateChatLocally(activeChatId, { status: 'completed', finalAnswer: payload.final_answer as string }, 'automata')
+      saveChatUpdate(activeChatId, { status: 'completed', finalAnswer: payload.final_answer as string })
     } else if (type === 'error') {
-      setStatus('error')
-      setIsRunning(false)
-      setErrorMsg((payload.message as string) || 'Unknown error')
+      updateChatLocally(activeChatId, { status: 'error', errorMsg: (payload.message as string) || 'Unknown error' }, 'automata')
+      saveChatUpdate(activeChatId, { status: 'error', errorMsg: (payload.message as string) || 'Unknown error' })
     }
-  }, [])
+  }, [activeChatId, updateChatLocally, saveChatUpdate])
 
-  const handleSubmit = useCallback(async () => {
-    if (!problem.trim() || isRunning) return
+  const executeQuery = useCallback(async (queryText: string, isFollowUp: boolean = false) => {
+    if (!queryText.trim() || isRunning || !activeChatId) return
 
-    // Reset state
-    setIsRunning(true)
-    setStatus('started')
-    setEvents([])
-    setFinalAnswer('')
-    setErrorMsg('')
+    let currentHistory = history
+    if (isFollowUp && problem && finalAnswer && status === 'completed') {
+      const newTurn = {
+        id: crypto.randomUUID(),
+        problem: problem,
+        finalAnswer: finalAnswer
+      }
+      currentHistory = [...history, newTurn]
+    }
 
+    let fullPrompt = queryText
+    if (currentHistory.length > 0) {
+      const recentHistory = currentHistory.slice(-3)
+      const historyContext = recentHistory.map((h, i) => `[Turn ${i+1}]\nQuestion: ${h.problem}\nAnswer: ${h.finalAnswer}`).join('\n\n')
+      fullPrompt = `[Previous Context]\n${historyContext}\n\n[Current Question]\n${queryText}`
+    }
+
+    const titleToSave = currentChat?.title === 'New Chat' ? queryText.slice(0, 40) + (queryText.length > 40 ? '...' : '') : currentChat?.title
+
+    updateChatLocally(activeChatId, { 
+      status: 'started',
+      events: [],
+      finalAnswer: '',
+      errorMsg: '',
+      problem: queryText,
+      history: currentHistory,
+      title: titleToSave
+    }, 'automata')
+
+    saveChatUpdate(activeChatId, {
+      status: 'started',
+      events: [],
+      finalAnswer: '',
+      errorMsg: '',
+      problem: queryText,
+      history: currentHistory,
+      title: titleToSave
+    })
+
+    setFollowUpText('')
     abortRef.current = new AbortController()
 
     try {
-      const response = await fetch('/api/automata/stream', {
+      const response = await fetch('/api/automata/solve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problem, force_mode: forceMode, attachments }),
+        body: JSON.stringify({ problem: fullPrompt, force_mode: forceMode, attachments }),
         signal: abortRef.current.signal,
       })
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: 'Request failed' }))
-        setErrorMsg(err.error || 'Backend error')
-        setStatus('error')
-        setIsRunning(false)
+        updateChatLocally(activeChatId, { status: 'error', errorMsg: err.error || 'Backend error' }, 'automata')
+        saveChatUpdate(activeChatId, { status: 'error', errorMsg: err.error || 'Backend error' })
         return
       }
 
@@ -440,27 +483,29 @@ export function AutomataAgentChat() {
       }
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
-        setStatus('error')
-        setErrorMsg('Could not connect to the Automata backend. Make sure it is running.')
-        setIsRunning(false)
+        updateChatLocally(activeChatId, { status: 'error', errorMsg: 'Could not connect to the backend.' }, 'automata')
+        saveChatUpdate(activeChatId, { status: 'error', errorMsg: 'Could not connect to the backend.' })
       }
     }
-  }, [problem, isRunning, handleStreamEvent])
+  }, [problem, finalAnswer, status, history, isRunning, handleStreamEvent, activeChatId, currentChat?.title, attachments, forceMode, updateChatLocally, saveChatUpdate])
+
+  const handleSubmit = () => executeQuery(problem, false)
+  const handleFollowUp = (text: string) => executeQuery(text, true)
 
   const handleStop = () => {
     abortRef.current?.abort()
-    setIsRunning(false)
-    setStatus('idle')
+    if (activeChatId) {
+      updateChatLocally(activeChatId, { status: 'idle' }, 'automata')
+      saveChatUpdate(activeChatId, { status: 'idle' })
+    }
   }
 
   const handleReset = () => {
     handleStop()
-    setProblem('')
-    setEvents([])
-    setFinalAnswer('')
-    setErrorMsg('')
-    setStatus('idle')
-    setAttachments([])
+    if (activeChatId) {
+      updateChatLocally(activeChatId, { problem: '', events: [], finalAnswer: '', errorMsg: '', attachments: [], status: 'idle' }, 'automata')
+      saveChatUpdate(activeChatId, { problem: '', events: [], finalAnswer: '', errorMsg: '', attachments: [], status: 'idle' })
+    }
     setTimeout(() => textareaRef.current?.focus(), 100)
   }
 
@@ -508,7 +553,7 @@ export function AutomataAgentChat() {
               rows={3}
               className={cn(
                 'w-full resize-none rounded-xl px-4 py-3 text-sm leading-relaxed',
-                'bg-card border text-foreground placeholder:text-muted-foreground/50',
+                'bg-black/40 border border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:bg-black/60 shadow-inner',
                 'focus:outline-none transition-all duration-200',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
               )}
@@ -778,6 +823,31 @@ export function AutomataAgentChat() {
                     </div>
                   </div>
 
+                  
+                  {/* History Bubbles */}
+                  {history.length > 0 && (
+                    <div className="mb-6 space-y-3">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Previous Turns</h4>
+                      {history.map((turn, idx) => (
+                        <details key={turn.id || idx} className="group bg-black/20 border border-border/50 rounded-lg overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                          <summary className="flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-white/5 transition-colors">
+                            <span className="text-sm font-medium truncate pr-4 text-foreground/80">{turn.problem}</span>
+                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground group-open:rotate-180 transition-transform duration-200" />
+                          </summary>
+                          <div className="px-4 py-3 border-t border-border/50 bg-black/40 text-sm text-foreground/70 prose prose-invert max-w-none">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkMath]}
+                              rehypePlugins={[rehypeKatex]}
+                              urlTransform={(url) => url.startsWith('data:image/') ? url : defaultUrlTransform(url)}
+                            >
+                              {formatText(turn.finalAnswer)}
+                            </ReactMarkdown>
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  )}
+
                   {/* The Final Answer Text */}
                   <div
                     className="rounded-xl p-5 border flex flex-col gap-4"
@@ -804,6 +874,41 @@ export function AutomataAgentChat() {
                       </ReactMarkdown>
                     </div>
                   </div>
+                  
+                  {/* Follow-up Section */}
+                  {status === 'completed' && (
+                    <div className="mt-6 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="flex flex-wrap gap-2">
+                        {["Can you provide an example input?","What is the time complexity?","How does this handle state transitions?"].map((sug, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleFollowUp(sug)}
+                            className="text-xs px-3 py-1.5 rounded-full border border-[oklch(0.7_0.15_195_/_0.3)] bg-[oklch(0.7_0.15_195_/_0.1)] text-[oklch(0.7_0.15_195)] hover:bg-[oklch(0.7_0.15_195_/_0.2)] transition-colors text-left"
+                          >
+                            {sug}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={followUpText}
+                          onChange={e => setFollowUpText(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleFollowUp(followUpText) }}
+                          placeholder="Ask a follow-up question..."
+                          className="w-full bg-black/40 border border-white/10 shadow-inner focus:bg-black/60 text-sm text-foreground rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:border-[oklch(0.7_0.15_195)] transition-colors"
+                        />
+                        <button
+                          onClick={() => handleFollowUp(followUpText)}
+                          disabled={!followUpText.trim()}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[oklch(0.7_0.15_195)] text-white hover:brightness-110 disabled:opacity-50 transition-all"
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                 </motion.div>
               )}
             </AnimatePresence>

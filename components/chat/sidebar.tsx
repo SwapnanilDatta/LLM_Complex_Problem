@@ -1,11 +1,11 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, MessageSquare, Trash2, Menu, X } from 'lucide-react'
+import { Plus, MessageSquare, Trash2, Menu, X, Pencil, Check } from 'lucide-react'
 import { useChatStore, AgentMode } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState, useRef } from 'react'
 import { useTranslation } from '@/lib/i18n'
 
 type DateGroupKey = 'sidebar.today' | 'sidebar.yesterday' | 'sidebar.previous_7_days' | 'sidebar.older'
@@ -60,6 +60,7 @@ const agentTheme: Record<AgentMode, { accent: string; pill: string; label: strin
 export function Sidebar() {
   const { t } = useTranslation()
   const {
+    fetchChats,
     chatsByAgent,
     activeChatByAgent,
     activeTab,
@@ -69,7 +70,13 @@ export function Sidebar() {
     toggleSidebar,
     deleteChat,
     openAgentTab,
+    updateChatLocally,
+    saveChatUpdate,
   } = useChatStore()
+
+  const [editingChatId, setEditingChatId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const editInputRef = useRef<HTMLInputElement>(null)
 
   const agentMode = activeTab ?? 'maths'
   const theme = agentTheme[agentMode]
@@ -78,8 +85,27 @@ export function Sidebar() {
 
   const groupedChats = useMemo(() => groupChatsByDate(chats), [chats])
 
-  const handleNewChat = () => {
-    openAgentTab(agentMode)
+  useEffect(() => {
+    fetchChats()
+  }, [fetchChats])
+
+  const handleNewChat = async () => {
+    await createNewChat(agentMode)
+  }
+
+  const startEditing = (e: React.MouseEvent, chat: {id: string, title: string}) => {
+    e.stopPropagation()
+    setEditingChatId(chat.id)
+    setEditTitle(chat.title)
+    setTimeout(() => editInputRef.current?.focus(), 50)
+  }
+
+  const saveEdit = () => {
+    if (editingChatId && editTitle.trim()) {
+      updateChatLocally(editingChatId, { title: editTitle.trim() }, agentMode)
+      saveChatUpdate(editingChatId, { title: editTitle.trim() })
+    }
+    setEditingChatId(null)
   }
 
   return (
@@ -205,16 +231,48 @@ export function Sidebar() {
                       }
                     >
                       <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate flex-1 text-sm">{chat.title}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteChat(chat.id, agentMode)
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-all shrink-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      
+                      {editingChatId === chat.id ? (
+                        <input
+                          ref={editInputRef}
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onBlur={saveEdit}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              saveEdit()
+                            } else if (e.key === 'Escape') {
+                              setEditingChatId(null)
+                            }
+                          }}
+                          className="flex-1 bg-black/30 border border-border/50 text-sm px-1.5 py-0.5 rounded outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="truncate flex-1 text-sm">{chat.title}</span>
+                      )}
+
+                      {!editingChatId && (
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center shrink-0 transition-opacity">
+                          <button
+                            onClick={(e) => startEditing(e, chat)}
+                            className="p-1 hover:text-[oklch(0.7_0.15_195)] transition-all"
+                            title="Rename"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteChat(chat.id, agentMode)
+                            }}
+                            className="p-1 hover:text-destructive transition-all"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
                     </motion.div>
                   ))}
                 </div>
