@@ -100,7 +100,7 @@ async def run_pipeline_stream(request: SolveRequest, queue: asyncio.Queue, domai
 async def solve_stream_math(request: SolveRequest, req: Request):
     return _build_event_source(request, req, "maths")
 
-@router.post("/api/automata/stream")
+@router.post("/api/automata/solve")
 async def solve_stream_automata(request: SolveRequest, req: Request):
     return _build_event_source(request, req, "automata")
 
